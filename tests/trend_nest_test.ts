@@ -8,7 +8,7 @@ import {
 import { assertEquals } from 'https://deno.land/std@0.90.0/testing/asserts.ts';
 
 Clarinet.test({
-    name: "Can mint virtual item",
+    name: "Can mint virtual item and adds to wardrobe",
     async fn(chain: Chain, accounts: Map<string, Account>) {
         const wallet1 = accounts.get('wallet_1')!;
         
@@ -38,11 +38,38 @@ Clarinet.test({
                 'metadata-uri': "ipfs://QmXyZ123..."
             }
         );
+
+        let wardrobe = chain.callReadOnlyFn(
+            'trend_nest',
+            'get-user-wardrobe',
+            [types.principal(wallet1.address)],
+            wallet1.address
+        );
+
+        assertEquals(
+            wardrobe.result.expectSome(),
+            types.list([types.uint(1)])
+        );
     }
 });
 
 Clarinet.test({
-    name: "Can create and interact with outfit",
+    name: "Cannot create outfit with invalid items",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const wallet1 = accounts.get('wallet_1')!;
+        
+        let block = chain.mineBlock([
+            Tx.contractCall('trend_nest', 'create-outfit', [
+                types.list([types.uint(999)])
+            ], wallet1.address)
+        ]);
+        
+        block.receipts[0].result.expectErr().expectUint(103);
+    }
+});
+
+Clarinet.test({
+    name: "Can create and interact with valid outfit",
     async fn(chain: Chain, accounts: Map<string, Account>) {
         const wallet1 = accounts.get('wallet_1')!;
         const wallet2 = accounts.get('wallet_2')!;
