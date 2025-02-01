@@ -6,8 +6,9 @@
 (define-constant err-owner-only (err u100))
 (define-constant err-not-found (err u101))
 (define-constant err-already-exists (err u102))
+(define-constant err-invalid-item (err u103))
 
-;; Data Variables
+;; Data Variables 
 (define-data-var last-item-id uint u0)
 (define-data-var last-outfit-id uint u0)
 
@@ -50,8 +51,22 @@
             category: category,
             metadata-uri: metadata-uri
         })
+        (add-to-wardrobe tx-sender new-id)
         (var-set last-item-id new-id)
         (ok new-id)
+    )
+)
+
+;; Wardrobe Management
+(define-public (add-to-wardrobe (user principal) (item-id uint))
+    (let
+        (
+            (current-wardrobe (default-to (list) (map-get? user-wardrobes user)))
+            (item (map-get? virtual-items item-id))
+        )
+        (asserts! (is-some item) err-invalid-item)
+        (map-set user-wardrobes user (append current-wardrobe item-id))
+        (ok true)
     )
 )
 
@@ -61,6 +76,8 @@
         (
             (new-id (+ (var-get last-outfit-id) u1))
         )
+        ;; Verify all items exist
+        (asserts! (fold check-items item-ids true) err-invalid-item)
         (map-set outfits new-id {
             creator: tx-sender,
             items: item-ids,
@@ -70,6 +87,10 @@
         (var-set last-outfit-id new-id)
         (ok new-id)
     )
+)
+
+(define-private (check-items (item-id uint) (valid bool))
+    (and valid (is-some (map-get? virtual-items item-id)))
 )
 
 ;; Social Features
